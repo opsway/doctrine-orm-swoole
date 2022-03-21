@@ -66,10 +66,9 @@ final class EntityManager implements EntityManagerInterface
 
     /**
      * @param string $className
-     * @psalm-suppress ImplementedReturnTypeMismatch
      * @return ORM\Mapping\ClassMetadata
      */
-    public function getClassMetadata($className)
+    public function getClassMetadata($className): ORM\Mapping\ClassMetadata
     {
         return $this->getWrappedEm()->getClassMetadata($className);
     }
