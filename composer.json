@@ -12,7 +12,7 @@
     "require": {
         "php": "^8.0",
         "doctrine/dbal": "^3.2",
-        "doctrine/orm": "^2.10",
+        "doctrine/orm": "^2.12",
         "psr/container": "^1.0 || ^2.0"
     },
     "require-dev": {
