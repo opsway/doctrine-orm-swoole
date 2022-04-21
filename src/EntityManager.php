@@ -8,9 +8,9 @@ use Closure;
 use DateTimeInterface;
 use Doctrine\Common\EventManager;
 use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\LockMode;
+use Doctrine\DBAL\LockMode; // phpcs:ignore
 use Doctrine\ORM;
-use Doctrine\ORM\AbstractQuery;
+use Doctrine\ORM\AbstractQuery; // phpcs:ignore
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\Internal\Hydration\AbstractHydrator;
@@ -66,9 +66,8 @@ final class EntityManager implements EntityManagerInterface
 
     /**
      * @param string $className
-     * @return ORM\Mapping\ClassMetadata
      */
-    public function getClassMetadata($className): ORM\Mapping\ClassMetadata
+    public function getClassMetadata($className) : ORM\Mapping\ClassMetadata
     {
         return $this->getWrappedEm()->getClassMetadata($className);
     }
@@ -352,17 +351,14 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @param object $object
      */
-    public function merge($object)
+    public function merge($object) : void
     {
         throw new Exception('Method merge was deprecated');
     }
 
-    /**
-     * @param string|null $objectName
-     */
-    public function clear($objectName = null)
+    public function clear() : void
     {
-        $this->getWrappedEm()->clear($objectName);
+        $this->getWrappedEm()->clear();
     }
 
     /**
