@@ -406,4 +406,14 @@ final class EntityManager implements EntityManagerInterface
     {
         return $this->getWrappedEm()->contains($object);
     }
+
+    public function reopen() : void
+    {
+        $em = $this->getWrappedEm();
+        if ($em->isOpen()) {
+            $em->clear();
+        } else {
+            $this->emStorage->offsetUnset($em);
+        }
+    }
 }
