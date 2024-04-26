@@ -15,59 +15,40 @@ use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityRepository;
 use Doctrine\ORM\Internal\Hydration\AbstractHydrator;
 use Doctrine\ORM\OptimisticLockException;
-use Doctrine\ORM\ORMException;
+use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\PessimisticLockException;
 use Doctrine\ORM\Query\ResultSetMapping;
 use Exception;
 use Swoole\Coroutine as Co;
-use WeakMap;
 
 use function defer;
-use function gc_collect_cycles;
 
 final class EntityManager implements EntityManagerInterface
 {
-    private WeakMap $emStorage;
-
-    public function __construct(protected Closure $emCreatorFn)
+    public function __construct(private Closure $emCreatorFn)
     {
-        $this->emStorage = new WeakMap();
     }
 
     public function getWrappedEm() : EntityManagerInterface
     {
-        $em = null;
+        $cid = Co::getCid();
+        $context = Co::getContext($cid);
 
-        /**
-         * @var EntityManagerInterface $foundEm
-         * @var int $cid
-         */
-        foreach ($this->emStorage->getIterator() as $foundEm => $cid) {
-            if (Co::getCid() === $cid) {
-                $em = $foundEm;
-                break;
-            }
-        }
-
-        if (! $em instanceof EntityManagerInterface) {
-            /** @var EntityManagerInterface $em */
-            $em = ($this->emCreatorFn)();
-            $this->emStorage->offsetSet($em, Co::getCid());
-            /** @psalm-suppress UnusedFunctionCall */
-            defer(static function () use ($em) {
-                $em->close();
-                unset($em);
-                gc_collect_cycles();
+        if (! isset($context->entityManager) || ! $context->entityManager instanceof EntityManagerInterface) {
+            $context->entityManager = ($this->emCreatorFn)();
+            Co::defer(function () use ($context) {
+                $context->entityManager->close();
+                unset($context->entityManager);
             });
         }
 
-        return $em;
+        return $context->entityManager;
     }
 
     /**
      * @param string $className
      */
-    public function getClassMetadata($className) : ORM\Mapping\ClassMetadata
+    public function getClassMetadata(string $className) : ORM\Mapping\ClassMetadata
     {
         return $this->getWrappedEm()->getClassMetadata($className);
     }
@@ -75,7 +56,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return ORM\UnitOfWork
      */
-    public function getUnitOfWork()
+    public function getUnitOfWork() : ORM\UnitOfWork
     {
         return $this->getWrappedEm()->getUnitOfWork();
     }
@@ -84,7 +65,7 @@ final class EntityManager implements EntityManagerInterface
      * @param string $className
      * @psalm-suppress all
      */
-    public function getRepository($className) : EntityRepository
+    public function getRepository(string $className) : EntityRepository
     {
         $metadata            = $this->getClassMetadata($className);
         $repositoryClassName = $metadata->customRepositoryClassName
@@ -96,7 +77,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return Connection
      */
-    public function getConnection()
+    public function getConnection() : Connection
     {
         return $this->getWrappedEm()->getConnection();
     }
@@ -104,7 +85,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return ORM\Cache|null
      */
-    public function getCache()
+    public function getCache() : ?ORM\Cache
     {
         return $this->getWrappedEm()->getCache();
     }
@@ -112,12 +93,12 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return ORM\Query\Expr
      */
-    public function getExpressionBuilder()
+    public function getExpressionBuilder() : ORM\Query\Expr
     {
         return $this->getWrappedEm()->getExpressionBuilder();
     }
 
-    public function beginTransaction()
+    public function beginTransaction() : void
     {
         $this->getWrappedEm()->beginTransaction();
     }
@@ -126,7 +107,7 @@ final class EntityManager implements EntityManagerInterface
      * @param callable $func
      * @return mixed
      */
-    public function transactional($func)
+    public function transactional(callable $func) : callable
     {
         return $this->getWrappedEm()->wrapInTransaction($func);
     }
@@ -134,17 +115,17 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return mixed
      */
-    public function wrapInTransaction(callable $func)
+    public function wrapInTransaction(callable $func) : callable
     {
         return $this->getWrappedEm()->wrapInTransaction($func);
     }
 
-    public function commit()
+    public function commit() : void
     {
         $this->getWrappedEm()->commit();
     }
 
-    public function rollback()
+    public function rollback() : void
     {
         $this->getWrappedEm()->rollback();
     }
@@ -153,7 +134,7 @@ final class EntityManager implements EntityManagerInterface
      * @param string $dql
      * @return ORM\Query
      */
-    public function createQuery($dql = '')
+    public function createQuery(string $dql = '') : ORM\Query
     {
         return $this->getWrappedEm()->createQuery($dql);
     }
@@ -162,7 +143,7 @@ final class EntityManager implements EntityManagerInterface
      * @param string $name
      * @return ORM\Query
      */
-    public function createNamedQuery($name)
+    public function createNamedQuery(string $name) : ORM\Query
     {
         return $this->getWrappedEm()->createNamedQuery($name);
     }
@@ -171,7 +152,7 @@ final class EntityManager implements EntityManagerInterface
      * @param string $sql
      * @return ORM\NativeQuery
      */
-    public function createNativeQuery($sql, ResultSetMapping $rsm)
+    public function createNativeQuery(string $sql, ResultSetMapping $rsm) : ORM\NativeQuery
     {
         return $this->getWrappedEm()->createNativeQuery($sql, $rsm);
     }
@@ -180,7 +161,7 @@ final class EntityManager implements EntityManagerInterface
      * @param string $name
      * @return ORM\NativeQuery
      */
-    public function createNamedNativeQuery($name)
+    public function createNamedNativeQuery(string $name) : ORM\NativeQuery
     {
         return $this->getWrappedEm()->createNamedNativeQuery($name);
     }
@@ -188,7 +169,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return ORM\QueryBuilder
      */
-    public function createQueryBuilder()
+    public function createQueryBuilder() : ORM\QueryBuilder
     {
         return $this->getWrappedEm()->createQueryBuilder();
     }
@@ -198,9 +179,9 @@ final class EntityManager implements EntityManagerInterface
      * @param mixed  $id
      * @psalm-param class-string $entityName
      * @return object|null
-     * @throws ORM\ORMException
+     * @throws ORMException
      */
-    public function getReference($entityName, $id)
+    public function getReference(string $entityName, $id) : ?object
     {
         return $this->getWrappedEm()->getReference($entityName, $id);
     }
@@ -211,12 +192,12 @@ final class EntityManager implements EntityManagerInterface
      * @return object|null
      * @psalm-suppress ArgumentTypeCoercion
      */
-    public function getPartialReference($entityName, $identifier)
+    public function getPartialReference(string $entityName, $identifier) : ?object
     {
         return $this->getWrappedEm()->getPartialReference($entityName, $identifier);
     }
 
-    public function close()
+    public function close() : void
     {
         $this->getWrappedEm()->close();
     }
@@ -225,7 +206,7 @@ final class EntityManager implements EntityManagerInterface
      * @param object $entity
      * @param bool   $deep
      */
-    public function copy($entity, $deep = false)
+    public function copy(object $entity, bool $deep = false) : void
     {
         throw new Exception('Copy of entity was deprecated');
     }
@@ -239,7 +220,7 @@ final class EntityManager implements EntityManagerInterface
      * @throws OptimisticLockException
      * @throws PessimisticLockException
      */
-    public function lock($entity, $lockMode, $lockVersion = null)
+    public function lock(object $entity, LockMode|int $lockMode, int|DateTimeInterface|null $lockVersion = null) : void
     {
         $this->getWrappedEm()->lock($entity, $lockMode, $lockVersion);
     }
@@ -247,7 +228,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return EventManager
      */
-    public function getEventManager()
+    public function getEventManager() : EventManager
     {
         return $this->getWrappedEm()->getEventManager();
     }
@@ -255,7 +236,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return ORM\Configuration
      */
-    public function getConfiguration()
+    public function getConfiguration() : ORM\Configuration
     {
         return $this->getWrappedEm()->getConfiguration();
     }
@@ -263,13 +244,13 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return bool
      */
-    public function isOpen()
+    public function isOpen() : bool
     {
         return $this->getWrappedEm()->isOpen();
     }
 
     /** @param int|string $hydrationMode */
-    public function getHydrator($hydrationMode)
+    public function getHydrator(int|string $hydrationMode) : void
     {
         throw new Exception('Method getHydrator was deprecated');
     }
@@ -280,7 +261,7 @@ final class EntityManager implements EntityManagerInterface
      * @return AbstractHydrator
      * @throws ORMException
      */
-    public function newHydrator($hydrationMode)
+    public function newHydrator(int|string $hydrationMode) : AbstractHydrator
     {
         return $this->getWrappedEm()->newHydrator($hydrationMode);
     }
@@ -289,7 +270,7 @@ final class EntityManager implements EntityManagerInterface
      * @psalm-suppress DeprecatedClass
      * @return ORM\Proxy\ProxyFactory
      */
-    public function getProxyFactory()
+    public function getProxyFactory() : ORM\Proxy\ProxyFactory
     {
         return $this->getWrappedEm()->getProxyFactory();
     }
@@ -297,7 +278,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return ORM\Query\FilterCollection
      */
-    public function getFilters()
+    public function getFilters() : ORM\Query\FilterCollection
     {
         return $this->getWrappedEm()->getFilters();
     }
@@ -305,7 +286,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return bool
      */
-    public function isFiltersStateClean()
+    public function isFiltersStateClean() : bool
     {
         return $this->getWrappedEm()->isFiltersStateClean();
     }
@@ -313,7 +294,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return bool
      */
-    public function hasFilters()
+    public function hasFilters() : bool
     {
         return $this->getWrappedEm()->hasFilters();
     }
@@ -327,7 +308,7 @@ final class EntityManager implements EntityManagerInterface
      * @psalm-param LockMode::*|null $lockMode
      * @return object|null
      */
-    public function find($className, $id, $lockMode = null, $lockVersion = null)
+    public function find(string $className, $id, LockMode|int|null $lockMode = null, ?int $lockVersion = null) : ?object
     {
         return $this->getWrappedEm()->find($className, $id, $lockMode, $lockVersion);
     }
@@ -335,7 +316,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @param object $object
      */
-    public function persist($object)
+    public function persist(object $object) : void
     {
         $this->getWrappedEm()->persist($object);
     }
@@ -343,7 +324,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @param object $object
      */
-    public function remove($object)
+    public function remove(object $object) : void
     {
         $this->getWrappedEm()->remove($object);
     }
@@ -351,7 +332,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @param object $object
      */
-    public function merge($object) : void
+    public function merge(object $object) : void
     {
         throw new Exception('Method merge was deprecated');
     }
@@ -364,20 +345,21 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @param object $object
      */
-    public function detach($object)
+    public function detach(object $object) : void
     {
         $this->getWrappedEm()->detach($object);
     }
 
     /**
      * @param object $object
+     * @param int|LockMode|null $lockMode
      */
-    public function refresh($object)
+    public function refresh(object $object, LockMode|int|null $lockMode = null) : void
     {
-        $this->getWrappedEm()->refresh($object);
+        $this->getWrappedEm()->refresh($object, $lockMode);
     }
 
-    public function flush()
+    public function flush() : void
     {
         $this->getWrappedEm()->flush();
     }
@@ -385,7 +367,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @return ORM\Mapping\ClassMetadataFactory
      */
-    public function getMetadataFactory()
+    public function getMetadataFactory() : ORM\Mapping\ClassMetadataFactory
     {
         return $this->getWrappedEm()->getMetadataFactory();
     }
@@ -393,7 +375,7 @@ final class EntityManager implements EntityManagerInterface
     /**
      * @param object $obj
      */
-    public function initializeObject($obj)
+    public function initializeObject(object $obj) : void
     {
         $this->getWrappedEm()->initializeObject($obj);
     }
@@ -402,18 +384,19 @@ final class EntityManager implements EntityManagerInterface
      * @param object $object
      * @return bool
      */
-    public function contains($object)
+    public function contains(object $object) : bool
     {
         return $this->getWrappedEm()->contains($object);
     }
 
     public function reopen() : void
     {
-        $em = $this->getWrappedEm();
+        $context = Co::getContext(Co::getCid());
+        $em      = $this->getWrappedEm();
         if ($em->isOpen()) {
             $em->clear();
         } else {
-            $this->emStorage->offsetUnset($em);
+            unset($context->entityManager);
         }
     }
 }
