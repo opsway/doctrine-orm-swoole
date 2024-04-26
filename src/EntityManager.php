@@ -18,10 +18,7 @@ use Doctrine\ORM\OptimisticLockException;
 use Doctrine\ORM\Exception\ORMException;
 use Doctrine\ORM\PessimisticLockException;
 use Doctrine\ORM\Query\ResultSetMapping;
-use Exception;
 use Swoole\Coroutine as Co;
-
-use function defer;
 
 final class EntityManager implements EntityManagerInterface
 {
@@ -104,15 +101,6 @@ final class EntityManager implements EntityManagerInterface
     }
 
     /**
-     * @param callable $func
-     * @return mixed
-     */
-    public function transactional(callable $func) : callable
-    {
-        return $this->getWrappedEm()->wrapInTransaction($func);
-    }
-
-    /**
      * @return mixed
      */
     public function wrapInTransaction(callable $func) : callable
@@ -140,30 +128,12 @@ final class EntityManager implements EntityManagerInterface
     }
 
     /**
-     * @param string $name
-     * @return ORM\Query
-     */
-    public function createNamedQuery(string $name) : ORM\Query
-    {
-        return $this->getWrappedEm()->createNamedQuery($name);
-    }
-
-    /**
      * @param string $sql
      * @return ORM\NativeQuery
      */
     public function createNativeQuery(string $sql, ResultSetMapping $rsm) : ORM\NativeQuery
     {
         return $this->getWrappedEm()->createNativeQuery($sql, $rsm);
-    }
-
-    /**
-     * @param string $name
-     * @return ORM\NativeQuery
-     */
-    public function createNamedNativeQuery(string $name) : ORM\NativeQuery
-    {
-        return $this->getWrappedEm()->createNamedNativeQuery($name);
     }
 
     /**
@@ -186,29 +156,9 @@ final class EntityManager implements EntityManagerInterface
         return $this->getWrappedEm()->getReference($entityName, $id);
     }
 
-    /**
-     * @param string $entityName
-     * @param mixed  $identifier
-     * @return object|null
-     * @psalm-suppress ArgumentTypeCoercion
-     */
-    public function getPartialReference(string $entityName, $identifier) : ?object
-    {
-        return $this->getWrappedEm()->getPartialReference($entityName, $identifier);
-    }
-
     public function close() : void
     {
         $this->getWrappedEm()->close();
-    }
-
-    /**
-     * @param object $entity
-     * @param bool   $deep
-     */
-    public function copy(object $entity, bool $deep = false) : void
-    {
-        throw new Exception('Copy of entity was deprecated');
     }
 
     /**
@@ -247,12 +197,6 @@ final class EntityManager implements EntityManagerInterface
     public function isOpen() : bool
     {
         return $this->getWrappedEm()->isOpen();
-    }
-
-    /** @param int|string $hydrationMode */
-    public function getHydrator(int|string $hydrationMode) : void
-    {
-        throw new Exception('Method getHydrator was deprecated');
     }
 
     /**
@@ -327,14 +271,6 @@ final class EntityManager implements EntityManagerInterface
     public function remove(object $object) : void
     {
         $this->getWrappedEm()->remove($object);
-    }
-
-    /**
-     * @param object $object
-     */
-    public function merge(object $object) : void
-    {
-        throw new Exception('Method merge was deprecated');
     }
 
     public function clear() : void
