@@ -163,9 +163,6 @@ final class EntityManager implements EntityManagerInterface
         return $this->getWrappedEm()->newHydrator($hydrationMode);
     }
 
-    /**
-     * @psalm-suppress DeprecatedClass
-     */
     public function getProxyFactory() : ORM\Proxy\ProxyFactory
     {
         return $this->getWrappedEm()->getProxyFactory();
