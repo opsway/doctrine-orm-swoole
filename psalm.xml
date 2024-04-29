@@ -16,5 +16,5 @@
     </projectFiles>
     <plugins>
         <pluginClass class="Lctrs\PsalmPsrContainerPlugin\Plugin"/>
-        <pluginClass class="Weirdan\DoctrinePsalmPlugin\Plugin"/></plugins>
+    </plugins>
 </psalm>
