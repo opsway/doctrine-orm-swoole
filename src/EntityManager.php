@@ -35,8 +35,11 @@ final class EntityManager implements EntityManagerInterface
             $context[self::class] = ($this->emCreatorFn)();
             /** @psalm-suppress MixedMethodCall */
             Co::defer(static function () use ($context) {
-                $context[self::class]->close();
-                unset($context[self::class]);
+                // After reopen context missing
+                if (isset($context[self::class]) && $context[self::class] instanceof EntityManagerInterface) {
+                    $context[self::class]->close();
+                    unset($context[self::class]);
+                }
             });
         }
         /** @psalm-var EntityManagerInterface */
